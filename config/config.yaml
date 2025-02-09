@@ -1,0 +1,79 @@
+defaults:
+  - _self_
+  - override hydra/launcher: joblib
+  # - launcher:
+  #     n_jobs: 1
+  #     prefer: threads # use processes instead of threads
+  #     backend: multiprocessing # use multiprocessing backend instead of loky
+model:
+  name: "unsloth/SmolLM2-1.7B-Instruct"
+  max_seq_length: 1024
+  load_in_4bit: true
+  fast_inference: true
+  gpu_memory_utilization: 0.5
+  lora:
+    rank: 64
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+    alpha: 64
+    use_gradient_checkpointing: "unsloth"
+    random_state: 3407
+
+training:
+  learning_rate: 5e-6
+  adam_beta1: 0.9
+  adam_beta2: 0.99
+  weight_decay: 0.1
+  warmup_ratio: 0.1
+  lr_scheduler_type: "cosine"
+  optim: "adamw_8bit"
+  logging_steps: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  num_generations: 8
+  max_prompt_length: 256
+  max_completion_length: 1024
+  max_steps: 8000
+  save_steps: 100
+  max_grad_norm: 0.1
+  report_to: ["wandb"]
+  output_dir: "SmolLM2-1.7B-Instruct-GRPO-Q8_0-GGUF-v2"
+
+saving:
+  username: ${env:HF_USERNAME}  # HuggingFace username
+  model_dir: "SmolLM2-1.7B-Instruct-GRPO-Q8_0-GGUF-v2"
+  hub_model_id: "${saving.username}/SmolLM2-1.7B-Instruct-GRPO-Q8_0-GGUF-v2"
+  save_gguf:
+    enabled: true
+    quantization_methods:
+      # - "q4_k_m"
+      - "q8_0"
+      # - "q5_k_m"
+  save_merged:
+    enabled: false
+    methods:
+      - "merged_16bit"
+      - "merged_4bit"
+      - "lora"
+  token: ${env:HF_TOKEN}
+
+
+system_prompt: |
+  Respond in the following format:
+  <reasoning>
+  ...
+  </reasoning>
+  <answer>
+  ...
+  </answer>
+
+generation:
+  temperature: 0.8
+  top_p: 0.95
+  max_tokens: 1024
