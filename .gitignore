@@ -14,3 +14,5 @@ unsloth_compiled_cache/
 .env
 
 outputs/
+
+wandb/
