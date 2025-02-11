@@ -258,7 +258,7 @@ def save(cfg, model, tokenizer):
                     cfg.saving.hub_model_id,
                     tokenizer,
                     quantization_method=quant_method,
-                    token=cfg.saving.token,
+                    token=os.getenv("HF_TOKEN"),
                 )
 
     if cfg.saving.save_merged.enabled:
