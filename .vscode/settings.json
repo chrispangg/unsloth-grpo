@@ -1,5 +1,24 @@
 {
+    "python.defaultInterpreterPath": ".venv/bin/python",
     "python.analysis.extraPaths": [
-        ".venv/lib/python3.10/site-packages"
-    ]
+        ".venv/lib/python3.10/site-packages",
+    ],
+    "python.autoComplete.extraPaths": [],
+    "python.analysis.autoImportCompletions": true,
+    "accessibility.signalOptions.volume": 0,
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+        },
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "notebook.formatOnSave.enabled": true,
+    "notebook.codeActionsOnSave": {
+        "notebook.source.fixAll": "explicit",
+        "notebook.source.organizeImports": "explicit"
+    },
+    "editor.fontFamily": "MesloLGS NF, Menlo, Monaco, 'Courier New', monospace",
+    "terminal.integrated.fontFamily": "MesloLGS NF"
 }
