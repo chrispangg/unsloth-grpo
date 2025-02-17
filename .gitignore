@@ -16,3 +16,7 @@ unsloth_compiled_cache/
 outputs/
 
 wandb/
+
+chriswhpang/
+
+llama.cpp/

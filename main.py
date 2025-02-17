@@ -1,28 +1,29 @@
 import os
-
 from typing import List
+
 from unsloth import FastLanguageModel, PatchFastRL
 
 PatchFastRL("GRPO", FastLanguageModel)  # needed for GRPO
 
-from unsloth import is_bfloat16_supported  # noqa: E402
-from trl import GRPOConfig, GRPOTrainer  # noqa: E402
 import re  # noqa: E402
-from datasets import load_dataset, Dataset  # noqa: E402
-from vllm import SamplingParams  # noqa: E402
+from dataclasses import (
+    dataclass,  # noqa: E402
+    field,  # noqa: E402
+)
 
-from dataclasses import dataclass  # noqa: E402
-from omegaconf import DictConfig  # noqa: E402
-from dataclasses import field  # noqa: E402
+import huggingface_hub  # noqa: E402
 import hydra  # noqa: E402
-
-import wandb # noqa: E402
-import huggingface_hub # noqa: E402
-
-from dotenv import load_dotenv # noqa: E402
+import wandb  # noqa: E402
+from datasets import Dataset, load_dataset  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+from omegaconf import DictConfig  # noqa: E402
+from trl import GRPOConfig, GRPOTrainer  # noqa: E402
+from unsloth import is_bfloat16_supported  # noqa: E402
+from vllm import SamplingParams  # noqa: E402
 
 max_seq_length = 1024  # Can increase for longer reasoning traces
 lora_rank = 64  # Larger rank = smarter, but slower
+
 
 @dataclass
 class LoraConfig:
@@ -318,7 +319,7 @@ def main(cfg: DictConfig):
     trainer.train()
     strawberry_example(tokenizer=tokenizer, model=model)
     strawberry_example_lora(tokenizer=tokenizer, model=model)
-    trainer.save_model('/workspace/grpo_demo/outputs/saved_model')
+    trainer.save_model("/workspace/grpo_demo/outputs/saved_model")
 
     if cfg.saving is not None:
         save(cfg, model, tokenizer)
