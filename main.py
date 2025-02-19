@@ -13,7 +13,6 @@ from dataclasses import (
 
 import huggingface_hub  # noqa: E402
 import hydra  # noqa: E402
-import wandb  # noqa: E402
 from datasets import Dataset, load_dataset  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
@@ -21,7 +20,9 @@ from trl import GRPOConfig, GRPOTrainer  # noqa: E402
 from unsloth import is_bfloat16_supported  # noqa: E402
 from vllm import SamplingParams  # noqa: E402
 
-max_seq_length = 1024  # Can increase for longer reasoning traces
+import wandb  # noqa: E402
+
+max_seq_length = 2048  # Can increase for longer reasoning traces
 lora_rank = 64  # Larger rank = smarter, but slower
 
 
@@ -45,7 +46,7 @@ class LoraConfig:
 
 @dataclass
 class ModelConfig:
-    max_seq_length: int = 1024
+    max_seq_length: int = 2048
     load_in_4bit: bool = True
     fast_inference: bool = True
     lora: LoraConfig = field(default_factory=lambda: LoraConfig())
@@ -85,27 +86,30 @@ def prepare_model(cfg: DictConfig):
 # Load and prep dataset
 SYSTEM_PROMPT = """
 Respond in the following format:
-<reasoning>
+<|begin_of_thought|>
 ...
-</reasoning>
-<answer>
+<|end_of_thought|>
+<|begin_of_solution|>
 ...
-</answer>
+\\boxed{answer}
+<|end_of_solution|>
 """
-
 XML_COT_FORMAT = """\
-<reasoning>
+<|begin_of_thought|>
 {reasoning}
-</reasoning>
-<answer>
-{answer}
-</answer>
+<|end_of_thought|>
+<|begin_of_solution|>
+\\boxed{{{answer}}}
+<|end_of_solution|>
 """
 
 
 def extract_xml_answer(text: str) -> str:
-    answer = text.split("<answer>")[-1]
-    answer = answer.split("</answer>")[0]
+    answer = text.split("<|begin_of_solution|>")[-1]
+    answer = answer.split("<|end_of_solution|>")[0]
+    answer = answer.strip()
+    if "\\boxed{" in answer:
+        answer = answer.split("\\boxed{")[1].split("}")[0]
     return answer.strip()
 
 
@@ -154,34 +158,34 @@ def int_reward_func(completions, **kwargs) -> list[float]:
     return [0.5 if r.isdigit() else 0.0 for r in extracted_responses]
 
 
-def strict_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
-    responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
+# def strict_format_reward_func(completions, **kwargs) -> list[float]:
+#     """Reward function that checks if the completion has a specific format."""
+#     pattern = r"^<\|begin_of_thought\|>\n.*?\n<\|end_of_thought\|>\n<\|begin_of_solution\|>\n.*?\n<\|end_of_solution\|>\n$"
+#     responses = [completion[0]["content"] for completion in completions]
+#     matches = [re.match(pattern, r, flags=re.DOTALL) for r in responses]
+#     return [0.5 if match else 0.0 for match in matches]
 
 
 def soft_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    pattern = r"<\|begin_of_thought\|>.*?<\|end_of_thought\|>\s*<\|begin_of_solution\|>.*?<\|end_of_solution\|>"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
+    matches = [re.match(pattern, r, flags=re.DOTALL) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
 
 
 def count_xml(text) -> float:
     count = 0.0
-    if text.count("<reasoning>\n") == 1:
+    if text.count("<|begin_of_thought|>\n") == 1:
         count += 0.125
-    if text.count("\n</reasoning>\n") == 1:
+    if text.count("\n<|end_of_thought|>\n") == 1:
         count += 0.125
-    if text.count("\n<answer>\n") == 1:
+    if text.count("\n<|begin_of_solution|>\n") == 1:
         count += 0.125
-        count -= len(text.split("\n</answer>\n")[-1]) * 0.001
-    if text.count("\n</answer>") == 1:
+        count -= len(text.split("\n<|end_of_solution|>\n")[-1]) * 0.001
+    if text.count("\n<|end_of_solution|>") == 1:
         count += 0.125
-        count -= (len(text.split("\n</answer>")[-1]) - 1) * 0.001
+        count -= (len(text.split("\n<|end_of_solution|>")[-1]) - 1) * 0.001
     return count
 
 
@@ -298,6 +302,7 @@ def main(cfg: DictConfig):
         max_completion_length=cfg.training.max_completion_length,
         max_steps=cfg.training.max_steps,
         save_steps=cfg.training.save_steps,
+        save_total_limit=2,
         max_grad_norm=cfg.training.max_grad_norm,
         report_to=cfg.training.report_to,
         output_dir=cfg.training.output_dir,
@@ -309,7 +314,7 @@ def main(cfg: DictConfig):
         reward_funcs=[
             xmlcount_reward_func,
             soft_format_reward_func,
-            strict_format_reward_func,
+            # strict_format_reward_func,
             int_reward_func,
             correctness_reward_func,
         ],
@@ -319,7 +324,9 @@ def main(cfg: DictConfig):
     trainer.train()
     strawberry_example(tokenizer=tokenizer, model=model)
     strawberry_example_lora(tokenizer=tokenizer, model=model)
-    trainer.save_model("/workspace/grpo_demo/outputs/saved_model")
+    trainer.save_model(
+        "/workspace/grpo_demo/chriswhpang/Llama-3.2-1B-Instruct-OpenThought-SFT-GRPO-GGUF"
+    )
 
     if cfg.saving is not None:
         save(cfg, model, tokenizer)

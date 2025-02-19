@@ -6,11 +6,11 @@ defaults:
   #     prefer: threads # use processes instead of threads
   #     backend: multiprocessing # use multiprocessing backend instead of loky
 model:
-  name: "unsloth/Llama-3.2-3B-Instruct-bnb-4bit"
-  max_seq_length: 1024
+  name: "chriswhpang/Llama-3.2-1B-Instruct-OpenThought-SFT-VLLM"
+  max_seq_length: 2048
   load_in_4bit: true
   fast_inference: true
-  gpu_memory_utilization: 0.5
+  gpu_memory_utilization: 0.4
   lora:
     rank: 64
     target_modules:
@@ -26,7 +26,7 @@ model:
     random_state: 3407
 
 training:
-  learning_rate: 5e-6
+  learning_rate: 1e-5
   adam_beta1: 0.9
   adam_beta2: 0.99
   weight_decay: 0.1
@@ -36,27 +36,28 @@ training:
   logging_steps: 1
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 4
-  num_generations: 8
+  num_generations: 6
   max_prompt_length: 512
-  max_completion_length: 1024
-  max_steps: 2000
-  save_steps: 1000
+  max_completion_length: 2048
+  max_steps: 1000
+  save_steps: 250
   max_grad_norm: 0.1
+  save_total_limit: 2
   report_to: "wandb"
-  output_dir: "chriswhpang/Llama-3.2-3B-Instruct-bnb-4bit-GRPO-GGUF"
+  output_dir: "chriswhpang/Llama-3.2-1B-Instruct-OpenThought-SFT-GRPO-GGUF"
 
 saving:
   username: chriswhpang  # HuggingFace username
-  model_dir: "Llama-3.2-3B-Instruct-bnb-4bit-GRPO-GGUF"
-  hub_model_id: "chriswhpang/Llama-3.2-3B-Instruct-bnb-4bit-GRPO-GGUF"
+  model_dir: "Llama-3.2-1B-Instruct-OpenThought-SFT-GRPO-GGUF"
+  hub_model_id: "chriswhpang/Llama-3.2-1B-Instruct-OpenThought-SFT-GRPO-GGUF"
   save_gguf:
     enabled: true
     quantization_methods:
-      # - "q4_k_m"
+      - "q4_k_m"
       - "q8_0"
-      # - "q5_k_m"
+      - "q5_k_m"
   save_merged:
-    enabled: false
+    enabled: true
     methods:
       - "merged_16bit"
       - "merged_4bit"
@@ -66,14 +67,14 @@ saving:
 
 system_prompt: |
   Respond in the following format:
-  <reasoning>
+  <|begin_of_thought|>
   ...
-  </reasoning>
-  <answer>
+  <|end_of_thought|>
+  <|begin_of_solution|>
   ...
-  </answer>
+  <|end_of_solution|>
 
 generation:
   temperature: 0.8
   top_p: 0.95
-  max_tokens: 1024
+  max_tokens: 2048
